@@ -104,12 +104,4 @@ def process_order(order):
                 session.add(new_order)
             session.commit()
 
-if __name__ == '__main__':
-    order={}
-    order['buy_currency']="Algorand"
-    order['sell_currency']="Ethereum"
-    order['buy_amount']=1245.00
-    order['sell_amount']=2342.31
-    order['sender_pk']="AAAAC3NzaC1lZDI1NTE5AAAAIB8Ht8Z3j6yDWPBHQtOp/R9rjWvfMYo3MSA/K6q8D86r"
-    order["receiver_pk"]="0xd1B77a920A0c5010469F40f14c5e4E03f4357226"
-    process_order(order)
+
