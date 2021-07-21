@@ -8,100 +8,41 @@ Base.metadata.bind = engine
 DBSession = sessionmaker(bind=engine)
 session = DBSession()
 
-def get_all_match_orders(order):
-    """
-    get all matched orders
-    :param order:
-    :return:list
-    """
-    #existing_order.buy_currency == order.sell_currency
-    #existing_order.sell_currency == order.buy_currency
-    #taker
-    cur_rate=order.buy_amount / order.sell_amount
-    res=session.query(Order).filter(Order.filled==None,Order.buy_currency==order.sell_currency,
-                                Order.sell_currency==order.buy_currency).all()
-    result=[]
-    if len(res)>0:
-        for obj in res:
-            #maker
-            tmp_rate=obj.sell_amount / obj.buy_amount
-            if tmp_rate>=cur_rate:
-                result.append(obj)
-    return result
-
-def insert_order(order):
-    obj = Order()
-    for r in order.keys():
-        obj.__setattr__(r, order[r])
-    flag = True
-    if obj.buy_currency == None or obj.buy_currency == '':
-        print("buy_currency must not be null")
-        flag = False
-    if obj.sell_currency == None or obj.sell_currency == '':
-        print("sell_currency must not be null")
-        flag = False
-    if obj.buy_amount == None or obj.buy_amount == '':
-        print("buy_amount must not be null")
-        flag = False
-    if obj.sell_amount == None or obj.sell_amount == '':
-        print("sell_amount must not be null")
-        flag = False
-    if obj.sender_pk == None or obj.sender_pk == '':
-        print("sender_pk must not be null")
-        flag = False
-    if obj.receiver_pk == None or obj.receiver_pk == '':
-        print("receiver_pk must not be null")
-        flag = False
-    if flag:
-        session.add(obj)
-        session.commit()
-    else:
-        obj=None
-    return obj
-
-
 def process_order(order):
     #Your code here
-    obj=insert_order(order)
-    existing_order=None
-    if obj!=None:
-        result=get_all_match_orders(obj)
-        if len(result)>0:
-            sorted(result, key=lambda o: o.sell_amount, reverse=True)
-            existing_order=result[0]
-            #Set the filled field to be the current timestamp on both orders
-            current_time=datetime.now()
-            existing_order.filled=current_time
-            obj.filled=current_time
-            #Set counterparty_id to be the id of the other order
-            obj.counterparty_id=existing_order.id
-            existing_order.counterparty_id=obj.id
-            #Create a new order for remaining balance
-            new_order = None
-            if existing_order.buy_amount>obj.sell_amount:
-                new_order=Order()
-                differ=existing_order.buy_amount - obj.sell_amount
-                new_order.buy_amount=differ
-                sell_amount=differ*existing_order.sell_amount/existing_order.buy_amount
-                new_order.sell_amount=sell_amount
-                new_order.creator_id=existing_order.id
-                new_order.sell_currency=existing_order.sell_currency
-                new_order.buy_currency=existing_order.buy_currency
-                new_order.receiver_pk=existing_order.receiver_pk
-                new_order.sender_pk=existing_order.sender_pk
-            if  existing_order.buy_amount<obj.sell_amount:
-                new_order = Order()
-                differ = obj.sell_amount - existing_order.buy_amount
-                new_order.sell_amount = differ
-                buy_amount = differ * obj.buy_amount / obj.sell_amount
-                new_order.buy_amount = buy_amount
-                new_order.creator_id = obj.id
-                new_order.sell_currency = obj.sell_currency
-                new_order.buy_currency = obj.buy_currency
-                new_order.receiver_pk = obj.receiver_pk
-                new_order.sender_pk = obj.sender_pk
-            if new_order!=None:
-                session.add(new_order)
-            session.commit()
+    count = session.query(Order).count()
+    #insert the order to table
+    order_obj = Order(id=count+1,sender_pk=order['sender_pk'],receiver_pk=order['receiver_pk'], buy_currency=order['buy_currency'], sell_currency=order['sell_currency'], buy_amount=order['buy_amount'], sell_amount=order['sell_amount'] )
+    session.add(order_obj)
+    session.commit()
+
+    #Check if there are any existing orders that match
+    #find the order just inserted
+    target_order = session.query(Order).get(count+1)
+
+    for i in range(count+1):
+        existing_order = session.query(Order).get(i)
+    	if existing_order.filled == None && existing_order.buy_currency == target_order.sell_currency && existing_order.sell_currency == target_order.buy_currency && existing_order.sell_amount / existing_order.buy_amount >= target_order.buy_amount/target_order.sell_amount && existing_order.counterparty_id == None :
+            #there is a match
+            existing_order.filled = target_order.filled = datetime.now()
+            existing_order.counterparty_id = target_order.id
+            target_order.counterparty_id = existing_order.id
+
+            #create a new order if there's partially match
+            if existing_order.sell_amount > target_order.buy_amount:
+                #the existing_order has remaining amount, so it is parent
+                create_by = i
+                new_s_pk = existing_order.sender_pk
+                new_r_pk = existing_order.receiver_pk
+                new_id = count+2
+                new_buy_currency = existing_order.buy_currency
+                new_sell_currency = existing_order.sell_currency
+                new_sell_amount = existing_order.sell_amount - target_order.buy_amount
 
 
+
+
+
+
+    		
+    pass
